@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="fr" data-suivi="dofus-ocre">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suivi Dofus Ocre</title>
+<style>
+:root {
+  --ecorce: #241a12;
+  --bois: #33261a;
+  --bois-clair: #46351f;
+  --ocre: #e3a62b;
+  --ocre-sombre: #8a5f12;
+  --parchemin: #f2e6cc;
+  --parchemin-doux: #bcaa8a;
+  --rouge: #b9423a;
+  --rouge-survol: #cf5349;
+  --vert: #3f9d5c;
+  --vert-survol: #4db26c;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 130px; }
+body {
+  margin: 0;
+  background: var(--ecorce);
+  color: var(--parchemin);
+  font: 16px/1.4 var(--serif);
+  font-variant-numeric: tabular-nums;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--parchemin); outline-offset: 1px; }
+
+.tete {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bois);
+  border-bottom: 3px solid var(--ocre-sombre);
+}
+.tete-int {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 10px 16px;
+  display: grid;
+  grid-template-columns: auto minmax(190px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr);
+  gap: 8px 24px;
+  align-items: center;
+}
+.oeuf { width: 62px; height: 78px; display: block; grid-row: span 2; }
+.oeuf rect { transition: y .2s ease-out, height .2s ease-out; }
+h1 { margin: 0; font-size: 21px; line-height: 1.15; font-weight: 600; }
+.mesure .titre { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.mesure .valeur { font-size: 22px; font-weight: 600; color: var(--ocre); }
+.mesure.grand .valeur { font-size: 30px; }
+.barre { height: 7px; background: var(--ecorce); margin-top: 3px; overflow: hidden; }
+.barre i { display: block; height: 100%; width: 0; background: var(--ocre); }
+.sauvegarde {
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--parchemin-doux);
+  min-height: 32px;
+}
+.sauvegarde.alerte { color: var(--parchemin); }
+.sauvegarde button {
+  flex: none;
+  padding: 5px 12px;
+  background: var(--ocre);
+  color: var(--ecorce);
+  border: 0;
+  font-weight: 600;
+}
+.sauvegarde button:hover { background: #f0b940; }
+[hidden] { display: none !important; }
+
+main { max-width: 1120px; margin: 0 auto; padding: 8px 16px 64px; }
+.etape { margin-top: 30px; }
+.etape-tete { display: flex; align-items: baseline; gap: 14px; padding-bottom: 5px; }
+h2 { margin: 0; flex: 1; font-size: 22px; line-height: 1.2; font-weight: 600; }
+.compte { font-size: 14px; color: var(--parchemin-doux); }
+.pct { font-size: 24px; font-weight: 600; color: var(--ocre); min-width: 64px; text-align: right; }
+.etape.complete h2 { color: var(--ocre); }
+
+.ligne {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(6, 76px) 118px;
+  gap: 2px;
+  align-items: stretch;
+  margin-top: 2px;
+}
+.colonnes { font-size: 13px; color: var(--parchemin-doux); text-align: center; margin-top: 7px; }
+.colonnes span:first-child { text-align: left; padding-left: 10px; }
+.nom {
+  background: var(--bois);
+  padding: 5px 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+.nom small { display: block; font-size: 13px; color: var(--parchemin-doux); }
+.case {
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  background: var(--rouge);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+}
+.case:hover { background: var(--rouge-survol); }
+.case[aria-pressed="true"] { background: var(--vert); }
+.case[aria-pressed="true"]:hover { background: var(--vert-survol); }
+.case[aria-pressed="true"]::after { content: "\2713"; }
+.tout {
+  padding: 0 4px;
+  border: 0;
+  background: var(--bois-clair);
+  font-size: 14px;
+}
+.tout:hover { background: #5b4629; }
+
+@media (max-width: 860px) {
+  html { scroll-padding-top: 170px; }
+  .tete-int { grid-template-columns: auto 1fr 1fr; gap: 6px 14px; }
+  .oeuf { width: 44px; height: 56px; grid-row: auto; }
+  h1, .mesure.grand { grid-column: 2 / -1; }
+  .mesure-boss { grid-column: 1 / 3; }
+  .sauvegarde { grid-column: 1 / -1; }
+  .mesure.grand .valeur { font-size: 24px; }
+  .ligne { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .nom, .colonnes span:first-child { grid-column: 1 / -1; }
+  .colonnes span:first-child, .colonnes span:last-child { display: none; }
+  .tout { grid-column: 1 / -1; min-height: 34px; }
+  .ligne:not(.colonnes) { margin-top: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .oeuf rect { transition: none; }
+}
+</style>
+</head>
+<body>
+<header class="tete">
+  <div class="tete-int">
+    <svg class="oeuf" viewBox="0 0 60 76" aria-hidden="true">
+      <defs><clipPath id="forme"><path d="M30 2C46 2 57 28 57 46C57 63 45 74 30 74C15 74 3 63 3 46C3 28 14 2 30 2Z"/></clipPath></defs>
+      <path d="M30 2C46 2 57 28 57 46C57 63 45 74 30 74C15 74 3 63 3 46C3 28 14 2 30 2Z" fill="#241a12"/>
+      <g clip-path="url(#forme)"><rect id="remplissage" x="0" y="76" width="60" height="0" fill="#e3a62b"/></g>
+      <path d="M30 2C46 2 57 28 57 46C57 63 45 74 30 74C15 74 3 63 3 46C3 28 14 2 30 2Z" fill="none" stroke="#e3a62b" stroke-width="2.5"/>
+      <path d="M17 42C17 31 22 21 28 15" fill="none" stroke="#f2e6cc" stroke-opacity=".55" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+    <div class="mesure grand">
+      <div class="titre"><h1>Dofus Ocre</h1><span class="valeur" id="global-pct"></span></div>
+      <div class="barre"><i id="global-barre"></i></div>
+    </div>
+    <div class="mesure mesure-boss">
+      <div class="titre"><span>Boss, étapes 1 à 3</span><span class="valeur" id="boss-pct"></span></div>
+      <div class="barre"><i id="boss-barre"></i></div>
+    </div>
+    <div class="mesure">
+      <div class="titre"><span>Archimonstres</span><span class="valeur" id="archi-pct"></span></div>
+      <div class="barre"><i id="archi-barre"></i></div>
+    </div>
+    <div class="sauvegarde" id="sauvegarde" role="status">
+      <span id="statut"></span>
+      <button type="button" id="action" hidden></button>
+    </div>
+  </div>
+</header>
+<main id="app"></main>
+
+<script id="donnees" type="application/json">
+{"titre":"Dofus Ocre : suivi des captures (L'éternelle moisson)",
+"personnages":["Forgelance","Cra","Enu","Eni","Panda","Feca"],
+"etapes":[
+{"nom":"Étape 1 : Boss de donjon","groupe":"boss","monstres":[
+{"nom":"Mob l'Éponge","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Bouftou Royal","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Tournesol Affamé","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Gelée Royale Bleuet","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Gelée Royale Menthe","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Shin Larve","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Rakoopeur","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Scarabosse Doré","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Bworkette","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Dragon Cochon","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Choudini","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Reine Nyée","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Tofu Royal","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Blop Coco Royal","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Blop Griotte Royal","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Blop Indigo Royal","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Blop Reinette Royal","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Rat Noir","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Rat Blanc","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Minotoror","alias":"","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 2 : Boss de donjon","groupe":"boss","monstres":[
+{"nom":"Hell Mina","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Tanukouï San","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Craqueleur Légendaire","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Damadrya","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Gelée Royale Fraise","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Maître Corbac","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Blop Multicolore Royal","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Corailleur Magistral","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Gourlo le Terrible","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Meulou","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Wa Wabbit","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Moon","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Koulosse","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Skeunk","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Abraknyde ancestral","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Hanshi","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Tynril Ahuri","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Tynril Consterné","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Tynril Déconcerté","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Tynril Perfide","alias":"","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 3 : Boss de donjon","groupe":"boss","monstres":[
+{"nom":"Gelée Royale Citron","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Founoroshi","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Bworker","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Sphincter Cell","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Minotot","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Silf le Rasboul Majeur","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Crocabulia","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Haute Truche","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Chêne mou","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Ougah","alias":"","cases":[0,0,0,0,0,0]},
+{"nom":"Kimbo","alias":"","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 4 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Sousourizoto le Collant","alias":"Souris Grise","cases":[0,0,0,0,0,0]},
+{"nom":"Mosketère le Dévoué","alias":"Moskito","cases":[0,0,0,0,0,0]},
+{"nom":"Arakule la Revancharde","alias":"Arakne","cases":[0,0,0,0,0,0]},
+{"nom":"Boudalf le Blanc","alias":"Boufton Blanc","cases":[0,0,0,0,0,0]},
+{"nom":"Boulgourvil le Lointain","alias":"Boufton Noir","cases":[0,0,0,0,0,0]},
+{"nom":"Tofumanchou l'Empereur","alias":"Tofu Maléfique","cases":[0,0,0,0,0,0]},
+{"nom":"Arachitik la Souffreteuse","alias":"Arakne Malade","cases":[0,0,0,0,0,0]},
+{"nom":"Pioustone le Problème","alias":"Piou Bleu","cases":[0,0,0,0,0,0]},
+{"nom":"Pioulbrineur le Mercenaire","alias":"Piou Jaune","cases":[0,0,0,0,0,0]},
+{"nom":"Pioulette la Coquine","alias":"Piou Rouge","cases":[0,0,0,0,0,0]},
+{"nom":"Pioukas la Plante","alias":"Piou Vert","cases":[0,0,0,0,0,0]},
+{"nom":"Pioussokrim le Délétère","alias":"Piou Violet","cases":[0,0,0,0,0,0]},
+{"nom":"Craraboss le Féérique","alias":"Crabe","cases":[0,0,0,0,0,0]},
+{"nom":"Larvonika l'Instrument","alias":"Larve Bleue","cases":[0,0,0,0,0,0]},
+{"nom":"Pioufe la Maquillée","alias":"Piou Rose","cases":[0,0,0,0,0,0]},
+{"nom":"Tofuldebeu l'Explosif","alias":"Tofu","cases":[0,0,0,0,0,0]},
+{"nom":"Tofurapin le Pétri","alias":"Tofu Malade","cases":[0,0,0,0,0,0]},
+{"nom":"Chamchie le Difficile","alias":"Champ Champ","cases":[0,0,0,0,0,0]},
+{"nom":"Pissdane l'Insipide","alias":"Pissenlit Diabolique","cases":[0,0,0,0,0,0]},
+{"nom":"Araknay la Galopante","alias":"Arakne Agressive","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 5 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Bandapar l'exclu","alias":"Bandit Manchot","cases":[0,0,0,0,0,0]},
+{"nom":"Roz la Magicienne","alias":"Rose Démoniaque","cases":[0,0,0,0,0,0]},
+{"nom":"Gelanal le Huileux","alias":"Gelée Bleue","cases":[0,0,0,0,0,0]},
+{"nom":"Kwoanneur le Frimeur","alias":"Kwoan","cases":[0,0,0,0,0,0]},
+{"nom":"Larchimaide la poussée","alias":"Larve Verte","cases":[0,0,0,0,0,0]},
+{"nom":"Boufdégou le Refoulant","alias":"Bouftou","cases":[0,0,0,0,0,0]},
+{"nom":"Kolforthe l'Indécollable","alias":"Kolérat","cases":[0,0,0,0,0,0]},
+{"nom":"Geloliaine l'Aérien","alias":"Gelée Menthe","cases":[0,0,0,0,0,0]},
+{"nom":"Larvapstrè le Subjectif","alias":"Larve Orange","cases":[0,0,0,0,0,0]},
+{"nom":"Serpistol l'Illustre","alias":"Serpentin","cases":[0,0,0,0,0,0]},
+{"nom":"Tiwa'Missou le Gateux","alias":"Black Tiwabbit","cases":[0,0,0,0,0,0]},
+{"nom":"Boudur le Raide","alias":"Boulanger sombre","cases":[0,0,0,0,0,0]},
+{"nom":"Tiwalpé le Dévêtu","alias":"Tiwabbit","cases":[0,0,0,0,0,0]},
+{"nom":"Tiwoflan le Lâche","alias":"Tiwabbit Kiaffin","cases":[0,0,0,0,0,0]},
+{"nom":"Tour le Vice","alias":"Tournesol Sauvage","cases":[0,0,0,0,0,0]},
+{"nom":"Bandson le Tonitruant","alias":"Bandit du Clan des Roublards","cases":[0,0,0,0,0,0]},
+{"nom":"Gobstiniais le Têtu","alias":"Gobet","cases":[0,0,0,0,0,0]},
+{"nom":"Nodkoku le Trahi","alias":"Nodkoko","cases":[0,0,0,0,0,0]},
+{"nom":"Tikosto le Mousse","alias":"Tikoko","cases":[0,0,0,0,0,0]},
+{"nom":"Trukul le Lent","alias":"Trukikol","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 6 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Sangria le Fruité","alias":"Sanglier","cases":[0,0,0,0,0,0]},
+{"nom":"Champayr le Disjoncté","alias":"Champa Vert","cases":[0,0,0,0,0,0]},
+{"nom":"Étoilette la Bouchée","alias":"Étoile de la Mer d'Asse","cases":[0,0,0,0,0,0]},
+{"nom":"Vampunor le Glacial","alias":"Vampire","cases":[0,0,0,0,0,0]},
+{"nom":"Bilvoezé le Bonimenteur","alias":"Biblop Coco","cases":[0,0,0,0,0,0]},
+{"nom":"Bi le Partageur","alias":"Biblop Griotte","cases":[0,0,0,0,0,0]},
+{"nom":"Bistou le Quêteur","alias":"Biblop Indigo","cases":[0,0,0,0,0,0]},
+{"nom":"Bistou le Rieur","alias":"Biblop Reinette","cases":[0,0,0,0,0,0]},
+{"nom":"Chevaustine le Reconstruit","alias":"Gob-Trotteur","cases":[0,0,0,0,0,0]},
+{"nom":"Milipussien le Géant","alias":"Milirat Strubien","cases":[0,0,0,0,0,0]},
+{"nom":"Boostif l'Affamé","alias":"Boo","cases":[0,0,0,0,0,0]},
+{"nom":"Preskapwal le Tendancieux","alias":"Prespic","cases":[0,0,0,0,0,0]},
+{"nom":"Chonstip la Passagère","alias":"Cochon de Lait","cases":[0,0,0,0,0,0]},
+{"nom":"Torthur la Lutte","alias":"Tortue Jaune","cases":[0,0,0,0,0,0]},
+{"nom":"Wabbitud le Constant","alias":"Wabbit","cases":[0,0,0,0,0,0]},
+{"nom":"Porfavor le Quémandeur","alias":"Berger Porkass","cases":[0,0,0,0,0,0]},
+{"nom":"Robiolego l'Assemblé","alias":"Robionicle","cases":[0,0,0,0,0,0]},
+{"nom":"Bouflet le Puéril","alias":"Chef de Guerre Bouftou","cases":[0,0,0,0,0,0]},
+{"nom":"Cromikay le Néophyte","alias":"Croc Gland","cases":[0,0,0,0,0,0]},
+{"nom":"Tortenssia la Fleurie","alias":"Tortue Bleue","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 7 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Bambouské le Camouflé","alias":"Bambouto","cases":[0,0,0,0,0,0]},
+{"nom":"Corpat le Vampire","alias":"Corbac","cases":[0,0,0,0,0,0]},
+{"nom":"Pichduitre le Totem","alias":"Pichon Blanc","cases":[0,0,0,0,0,0]},
+{"nom":"Pichdourse le Puissant","alias":"Pichon Bleu","cases":[0,0,0,0,0,0]},
+{"nom":"Pichtoire l'Erudit","alias":"Pichon Orange","cases":[0,0,0,0,0,0]},
+{"nom":"Pichakoté le Dégoûtant","alias":"Pichon Vert","cases":[0,0,0,0,0,0]},
+{"nom":"Tortorak le Cornu","alias":"Tortue Rouge","cases":[0,0,0,0,0,0]},
+{"nom":"Maître Amboat le Moqueur","alias":"Maître Vampire","cases":[0,0,0,0,0,0]},
+{"nom":"Robocoop l'Échangé","alias":"Robot Fléau","cases":[0,0,0,0,0,0]},
+{"nom":"Fourapin le Chaud","alias":"Fourbasse","cases":[0,0,0,0,0,0]},
+{"nom":"Milipatte la Griffe","alias":"Milimulou","cases":[0,0,0,0,0,0]},
+{"nom":"Minoskour le Sauveur","alias":"Minoskito","cases":[0,0,0,0,0,0]},
+{"nom":"Neufedur le Flottant","alias":"Noeul","cases":[0,0,0,0,0,0]},
+{"nom":"Tortilleur le Coulé","alias":"Tortue Verte","cases":[0,0,0,0,0,0]},
+{"nom":"Bwormage le Respectueux","alias":"Bwork Mage","cases":[0,0,0,0,0,0]},
+{"nom":"Wagnagnah le Sanglant","alias":"Black Wabbit","cases":[0,0,0,0,0,0]},
+{"nom":"Crognan le Barbare","alias":"Crowneille","cases":[0,0,0,0,0,0]},
+{"nom":"Rostensyl la Cuisinière","alias":"Rose Obscure","cases":[0,0,0,0,0,0]},
+{"nom":"Minsinistre l'Elu","alias":"Mineur Sombre","cases":[0,0,0,0,0,0]},
+{"nom":"Barchwork le Multicolore","alias":"Bwork Archer","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 8 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Champayt l'Odorant","alias":"Champa Bleu","cases":[0,0,0,0,0,0]},
+{"nom":"Chamflay le Ballonné","alias":"Champa Marron","cases":[0,0,0,0,0,0]},
+{"nom":"Chamdblé le Cultivé","alias":"Champa Rouge","cases":[0,0,0,0,0,0]},
+{"nom":"Craquetuss le Piquant","alias":"Craqueboule","cases":[0,0,0,0,0,0]},
+{"nom":"Mandalo l'Aqueuse","alias":"Mandrine","cases":[0,0,0,0,0,0]},
+{"nom":"Mallopiée l'Épineuse","alias":"Malle Outillée","cases":[0,0,0,0,0,0]},
+{"nom":"Garsim le Mort","alias":"Gargrouille","cases":[0,0,0,0,0,0]},
+{"nom":"Draglida la Disparue","alias":"Dragodinde Amande Sauvage","cases":[0,0,0,0,0,0]},
+{"nom":"Gelaviv le Glaçon","alias":"Gelée Rouge","cases":[0,0,0,0,0,0]},
+{"nom":"Watdogue le Bien Nommé","alias":"Wabbit Squelette","cases":[0,0,0,0,0,0]},
+{"nom":"Chafalfer l'Optimiste","alias":"Chafer Invisible","cases":[0,0,0,0,0,0]},
+{"nom":"Crakmitaine le Faucheur","alias":"Craqueleur","cases":[0,0,0,0,0,0]},
+{"nom":"Bworkasse le Dégoûtant","alias":"Bwork","cases":[0,0,0,0,0,0]},
+{"nom":"Abrakroc l'Edenté","alias":"Abraknyde","cases":[0,0,0,0,0,0]},
+{"nom":"Krapahut le Randonneur","alias":"Kraméléhon","cases":[0,0,0,0,0,0]},
+{"nom":"Scapé l'Epée","alias":"Scarafeuille Blanc","cases":[0,0,0,0,0,0]},
+{"nom":"Scarfayss le Balafré","alias":"Scarafeuille Bleu","cases":[0,0,0,0,0,0]},
+{"nom":"Scarouarze l'Epopée","alias":"Scarafeuille Rouge","cases":[0,0,0,0,0,0]},
+{"nom":"Scaramel le Fondant","alias":"Scarafeuille Vert","cases":[0,0,0,0,0,0]},
+{"nom":"Ribibi le Cher","alias":"Rib","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 9 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Blorie l'Assourdissante","alias":"Blop Coco","cases":[0,0,0,0,0,0]},
+{"nom":"Blordur l'Infect","alias":"Blop Griotte","cases":[0,0,0,0,0,0]},
+{"nom":"Bloporte le Veule","alias":"Blop Indigo","cases":[0,0,0,0,0,0]},
+{"nom":"Blof l'Apathique","alias":"Blop Reinette","cases":[0,0,0,0,0,0]},
+{"nom":"Boombata le Garde","alias":"Boomba","cases":[0,0,0,0,0,0]},
+{"nom":"Farlon l'Enfant","alias":"Cochon de farle","cases":[0,0,0,0,0,0]},
+{"nom":"Scaratyn l'Huître","alias":"Scaratos","cases":[0,0,0,0,0,0]},
+{"nom":"Chaffoin le Sournois","alias":"Chafer Fantassin","cases":[0,0,0,0,0,0]},
+{"nom":"Larvomatik le Propre","alias":"Larve Jaune","cases":[0,0,0,0,0,0]},
+{"nom":"Tronkoneuz la Tranchante","alias":"Tronknyde","cases":[0,0,0,0,0,0]},
+{"nom":"Abrakadnuzar","alias":"Abrakne","cases":[0,0,0,0,0,0]},
+{"nom":"Chafemal le Bagarreur","alias":"Chafer","cases":[0,0,0,0,0,0]},
+{"nom":"Crolnareff l'Exilé","alias":"Crocodaille","cases":[0,0,0,0,0,0]},
+{"nom":"Radoutable le Craint","alias":"Scélérat Strubien","cases":[0,0,0,0,0,0]},
+{"nom":"Scorpitène l'Enflammé","alias":"Scorbute","cases":[0,0,0,0,0,0]},
+{"nom":"Dragnoute l'Irascible","alias":"Dragodinde Rousse Sauvage","cases":[0,0,0,0,0,0]},
+{"nom":"Bulsavon le Gonflé","alias":"Bulbuisson","cases":[0,0,0,0,0,0]},
+{"nom":"Crustterus l'Organique","alias":"Crustorail Kouraçao","cases":[0,0,0,0,0,0]},
+{"nom":"Crustensyl le Pragmatique","alias":"Crustorail Malibout","cases":[0,0,0,0,0,0]},
+{"nom":"Cruskof le Rustre","alias":"Crustorail Morito","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 10 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Crusmeyer le Pervers","alias":"Crustorail Passaoh","cases":[0,0,0,0,0,0]},
+{"nom":"Forboyar l'Enigmatique","alias":"Forgeron Sombre","cases":[0,0,0,0,0,0]},
+{"nom":"Floriste la Cannibale","alias":"Floristile","cases":[0,0,0,0,0,0]},
+{"nom":"Arabord la Cruche","alias":"Arakne Majeure","cases":[0,0,0,0,0,0]},
+{"nom":"Grandilok le Clameur","alias":"Grand Pa Wabbit","cases":[0,0,0,0,0,0]},
+{"nom":"Wokènrôl le Danseur","alias":"Wo Wabbit","cases":[0,0,0,0,0,0]},
+{"nom":"Cavordemal le Sorcier","alias":"Cavalier Porkass","cases":[0,0,0,0,0,0]},
+{"nom":"Aboudbra le Porteur","alias":"Aboub","cases":[0,0,0,0,0,0]},
+{"nom":"Ameur la Laide","alias":"Amlub","cases":[0,0,0,0,0,0]},
+{"nom":"Codenlgaz le Problème","alias":"Codem","cases":[0,0,0,0,0,0]},
+{"nom":"Ginsenk le Stimulant","alias":"Gink","cases":[0,0,0,0,0,0]},
+{"nom":"Kiroyal le Sirupeux","alias":"Kirevam","cases":[0,0,0,0,0,0]},
+{"nom":"Let le Rond","alias":"Let Emoliug","cases":[0,0,0,0,0,0]},
+{"nom":"Nelvin le Boulet","alias":"Negbib","cases":[0,0,0,0,0,0]},
+{"nom":"Nipulnislip l'Exhibitionniste","alias":"Nipul","cases":[0,0,0,0,0,0]},
+{"nom":"Osuxion le Vampirique","alias":"Osurc","cases":[0,0,0,0,0,0]},
+{"nom":"Susbewl l'Hypocrite","alias":"Susej","cases":[0,0,0,0,0,0]},
+{"nom":"Koktèle le Secoué","alias":"Kokoko","cases":[0,0,0,0,0,0]},
+{"nom":"Chafmarcel le Fêtard","alias":"Chafer Archer","cases":[0,0,0,0,0,0]},
+{"nom":"Chalan le Commerçant","alias":"Chafer Lancier","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 11 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Ramitant le Dilettante","alias":"Ramane d'Égoutant","cases":[0,0,0,0,0,0]},
+{"nom":"Doktopuss le Maléfique","alias":"Dok Alako","cases":[0,0,0,0,0,0]},
+{"nom":"Germinol l'Indigent","alias":"Gamino","cases":[0,0,0,0,0,0]},
+{"nom":"Koalastrof la Naturelle","alias":"Koalak Immature","cases":[0,0,0,0,0,0]},
+{"nom":"Ouature la Mobile","alias":"La Ouassingue","cases":[0,0,0,0,0,0]},
+{"nom":"Ouassébo l'Esthète","alias":"Le Ouassingue","cases":[0,0,0,0,0,0]},
+{"nom":"Ouashouash l'Exubérant","alias":"Le Ouassingue Entourbé","cases":[0,0,0,0,0,0]},
+{"nom":"Palmito le Menteur","alias":"Palmifleur Malibout","cases":[0,0,0,0,0,0]},
+{"nom":"Palmiche le Serein","alias":"Palmifleur Morito","cases":[0,0,0,0,0,0]},
+{"nom":"Palmiflette le Convivial","alias":"Palmifleur Passaoh","cases":[0,0,0,0,0,0]},
+{"nom":"Sampi l'Eternel","alias":"Sanglier des Plaines","cases":[0,0,0,0,0,0]},
+{"nom":"Abrakildas le Vénérable","alias":"Abraknyde Vénérable","cases":[0,0,0,0,0,0]},
+{"nom":"Cramikaz le Suicidaire","alias":"Craqueleur des Plaines","cases":[0,0,0,0,0,0]},
+{"nom":"Koko la Violente","alias":"Kokom","cases":[0,0,0,0,0,0]},
+{"nom":"Chafrit le Barbare","alias":"Chafer d'Élite","cases":[0,0,0,0,0,0]},
+{"nom":"Craquetou le Fissuré","alias":"Craqueboule Poli","cases":[0,0,0,0,0,0]},
+{"nom":"Maître Champeur le Sabreur","alias":"Maître Bolet","cases":[0,0,0,0,0,0]},
+{"nom":"Grenuche la Gentille","alias":"Grenufar","cases":[0,0,0,0,0,0]},
+{"nom":"Kannibal le Lecteur","alias":"Kanniboul Archer","cases":[0,0,0,0,0,0]},
+{"nom":"Kapota la Fraise","alias":"Kanniboul Jav","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 12 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Kannémik le Maigre","alias":"Kanniboul Sarbak","cases":[0,0,0,0,0,0]},
+{"nom":"Kannisterik le Forcené","alias":"Kanniboul Thierry","cases":[0,0,0,0,0,0]},
+{"nom":"Sarkastik l'Incompris","alias":"Sarkapwane","cases":[0,0,0,0,0,0]},
+{"nom":"Palmbytch la Bronzée","alias":"Palmifleur Kouraçao","cases":[0,0,0,0,0,0]},
+{"nom":"Ratlbol l'Aigri","alias":"Rat d'Égoutant","cases":[0,0,0,0,0,0]},
+{"nom":"Ougaould le Parasite","alias":"Chafer Draugr","cases":[0,0,0,0,0,0]},
+{"nom":"Corboyard l'Enigmatique","alias":"Corailleur","cases":[0,0,0,0,0,0]},
+{"nom":"Kwaké le Piraté","alias":"Kwak de Vent","cases":[0,0,0,0,0,0]},
+{"nom":"Kwakwatique le Trempé","alias":"Kwak de Glace","cases":[0,0,0,0,0,0]},
+{"nom":"Kwakamole l'Appétissant","alias":"Kwak de Terre","cases":[0,0,0,0,0,0]},
+{"nom":"Kwakolak le Chocolaté","alias":"Kwak de Flamme","cases":[0,0,0,0,0,0]},
+{"nom":"Porsalé le Râleur","alias":"Porsalu","cases":[0,0,0,0,0,0]},
+{"nom":"Dragioli le Succulent","alias":"Dragacé","cases":[0,0,0,0,0,0]},
+{"nom":"Vetaurine l'Énergisé","alias":"Vétauran","cases":[0,0,0,0,0,0]},
+{"nom":"Moumoute la Douce","alias":"Moumoule","cases":[0,0,0,0,0,0]},
+{"nom":"Parapadkouï l'Émasculé","alias":"Parashukouï","cases":[0,0,0,0,0,0]},
+{"nom":"Serpistule le Purulent","alias":"Serpiplume","cases":[0,0,0,0,0,0]},
+{"nom":"Bebetto l'Intellectuel","alias":"Betto","cases":[0,0,0,0,0,0]},
+{"nom":"Akaka le Souillé","alias":"Akakwa","cases":[0,0,0,0,0,0]},
+{"nom":"Rauligo le Sale","alias":"Raul Mops","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 13 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Caboume l'Artilleur","alias":"Canondorf","cases":[0,0,0,0,0,0]},
+{"nom":"Tilolo la Bien Moulée","alias":"Lolojiki","cases":[0,0,0,0,0,0]},
+{"nom":"Nakuneuye le Borgne","alias":"Nakunbra","cases":[0,0,0,0,0,0]},
+{"nom":"Chiendanlémin l'Illusionniste","alias":"Chiendent","cases":[0,0,0,0,0,0]},
+{"nom":"Dragstayr le Fonceur","alias":"Dragoeuf Calcaire","cases":[0,0,0,0,0,0]},
+{"nom":"Dragmoclaiss le Fataliste","alias":"Dragoeuf Ardoise","cases":[0,0,0,0,0,0]},
+{"nom":"Dragkouine la Déguisée","alias":"Dragoeuf Argile","cases":[0,0,0,0,0,0]},
+{"nom":"Dragnostik le Sceptique","alias":"Dragoeuf Charbon","cases":[0,0,0,0,0,0]},
+{"nom":"Koamaembair le Coulant","alias":"Koalak Coco","cases":[0,0,0,0,0,0]},
+{"nom":"Koakofrui le Confit","alias":"Koalak Griotte","cases":[0,0,0,0,0,0]},
+{"nom":"Koaskette la Chapelière","alias":"Koalak Indigo","cases":[0,0,0,0,0,0]},
+{"nom":"Koarmit la Batracienne","alias":"Koalak Reinette","cases":[0,0,0,0,0,0]},
+{"nom":"Ratéhaifaim le Professeur","alias":"Rat d'Hyoactif","cases":[0,0,0,0,0,0]},
+{"nom":"Sparoket le Lanceur","alias":"Sparo","cases":[0,0,0,0,0,0]},
+{"nom":"Fanlabiz le Véloce","alias":"Fantôme Apero","cases":[0,0,0,0,0,0]},
+{"nom":"Fandanleuil le Précis","alias":"Fantôme aux Plates","cases":[0,0,0,0,0,0]},
+{"nom":"Fantoch le Pantin","alias":"Fantôme Hicide","cases":[0,0,0,0,0,0]},
+{"nom":"Fantrask la Rêveuse","alias":"Fantôme Égérie","cases":[0,0,0,0,0,0]},
+{"nom":"Barebourd le Comte","alias":"Barbroussa","cases":[0,0,0,0,0,0]},
+{"nom":"Nerdeubeu le Flagellant","alias":"Nerbe","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 14 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Crok le Beau","alias":"Chef Crocodaille","cases":[0,0,0,0,0,0]},
+{"nom":"Toufou le Benêt","alias":"Bitouf des Plaines","cases":[0,0,0,0,0,0]},
+{"nom":"Crathdogue le Cruel","alias":"Craqueleur Poli","cases":[0,0,0,0,0,0]},
+{"nom":"Alhoui le Répondeur","alias":"Alhyène","cases":[0,0,0,0,0,0]},
+{"nom":"Pantacour le Long","alias":"Panthégros","cases":[0,0,0,0,0,0]},
+{"nom":"Orfélyre le Charmeur","alias":"Orfélin","cases":[0,0,0,0,0,0]},
+{"nom":"Félyssion la Gourmande","alias":"Félygiène","cases":[0,0,0,0,0,0]},
+{"nom":"Kanibière l'Encordée","alias":"Kaniblou","cases":[0,0,0,0,0,0]},
+{"nom":"Kanasukr le Mielleux","alias":"Kanigrou","cases":[0,0,0,0,0,0]},
+{"nom":"Mufguedin le Suprême","alias":"Mufafah","cases":[0,0,0,0,0,0]},
+{"nom":"Muloufok l'Hilarant","alias":"Mulou","cases":[0,0,0,0,0,0]},
+{"nom":"Bonpake le Chavireur","alias":"Ishigro Pake","cases":[0,0,0,0,0,0]},
+{"nom":"Kido l'Âtre","alias":"Kido","cases":[0,0,0,0,0,0]},
+{"nom":"Kilimanj'haro le Grimpeur","alias":"Kilibriss","cases":[0,0,0,0,0,0]},
+{"nom":"Larvaloeil l'Émue","alias":"Larve Champêtre","cases":[0,0,0,0,0,0]},
+{"nom":"Souristiti l'Immortalisée","alias":"Souris Verte","cases":[0,0,0,0,0,0]},
+{"nom":"Bourde le Maladroit","alias":"Bourdard","cases":[0,0,0,0,0,0]},
+{"nom":"Fouflay le Retombé","alias":"Foufayteur","cases":[0,0,0,0,0,0]},
+{"nom":"Dragonienne l'Econome","alias":"Dragueuse","cases":[0,0,0,0,0,0]},
+{"nom":"Guerrite le Veilleur","alias":"Guerrier Koalak","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 15 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Lichangora l'Immaculée","alias":"Lichangoro","cases":[0,0,0,0,0,0]},
+{"nom":"Craquecrac l'Endurant","alias":"Craquelourd","cases":[0,0,0,0,0,0]},
+{"nom":"Warkolad l'Etreinte","alias":"Warko Marron","cases":[0,0,0,0,0,0]},
+{"nom":"Inopenope le Négatif","alias":"Ino-Naru","cases":[0,0,0,0,0,0]},
+{"nom":"Abrakanette l'Encapsulé","alias":"Abraknyde Sombre","cases":[0,0,0,0,0,0]},
+{"nom":"Tétonée la Plantureuse","alias":"Tétonuki","cases":[0,0,0,0,0,0]},
+{"nom":"Fossamoel le Juteux","alias":"Fossoyeur Koalak","cases":[0,0,0,0,0,0]},
+{"nom":"Gloubibou le Gars","alias":"Gloutovore","cases":[0,0,0,0,0,0]},
+{"nom":"Koasossyal le Psychopathe","alias":"Koalak Forestier","cases":[0,0,0,0,0,0]},
+{"nom":"Pékeutar le Tireur","alias":"Pékeualak","cases":[0,0,0,0,0,0]},
+{"nom":"Piradain le Pingre","alias":"Piralak","cases":[0,0,0,0,0,0]},
+{"nom":"Abraklette le Fondant","alias":"Abrakne Sombre","cases":[0,0,0,0,0,0]},
+{"nom":"Koamag'oel le Défiguré","alias":"Chevaucheur Koalak","cases":[0,0,0,0,0,0]},
+{"nom":"Meuroup le Prêtre","alias":"Meupette","cases":[0,0,0,0,0,0]},
+{"nom":"Rooroku l'Imposant","alias":"Kurookin","cases":[0,0,0,0,0,0]},
+{"nom":"Dragdikal le Décisif","alias":"Dragnarok","cases":[0,0,0,0,0,0]},
+{"nom":"Dragobert le Monarque","alias":"Draguaindrop","cases":[0,0,0,0,0,0]},
+{"nom":"Diskord le Belliqueux","alias":"Disciple Zoth","cases":[0,0,0,0,0,0]},
+{"nom":"Brouste l'Humiliant","alias":"Brouture","cases":[0,0,0,0,0,0]},
+{"nom":"Bitoven le Musicien","alias":"Bitouf Sombre","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 16 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Ecorfé la Vive","alias":"Fécorce","cases":[0,0,0,0,0,0]},
+{"nom":"Floanna la Blonde","alias":"Floribonde","cases":[0,0,0,0,0,0]},
+{"nom":"Koalvissie le Chauve","alias":"Koalak Sanguin","cases":[0,0,0,0,0,0]},
+{"nom":"Koalaboi le Calorifère","alias":"Koalak Farouche","cases":[0,0,0,0,0,0]},
+{"nom":"Mamakomou l'Âge","alias":"Mama Koalak","cases":[0,0,0,0,0,0]},
+{"nom":"Momikonos la Bandelette","alias":"Momie Koalak","cases":[0,0,0,0,0,0]},
+{"nom":"Bouliver le Géant","alias":"Bourbassingue","cases":[0,0,0,0,0,0]},
+{"nom":"Wara l'Amer","alias":"Warko Violet","cases":[0,0,0,0,0,0]},
+{"nom":"Gastroth la Contagieuse","alias":"Gamine Zoth","cases":[0,0,0,0,0,0]},
+{"nom":"Guerumoth le Collant","alias":"Guerrier Zoth","cases":[0,0,0,0,0,0]},
+{"nom":"Tourbiket le Virevoletant","alias":"Tourbassingue","cases":[0,0,0,0,0,0]},
+{"nom":"Abrakine le Sombre","alias":"Abrakleur Sombre","cases":[0,0,0,0,0,0]},
+{"nom":"Dragminster le Magicien","alias":"Dragoss Calcaire","cases":[0,0,0,0,0,0]},
+{"nom":"Drageaufol la Joyeuse","alias":"Dragoss Ardoise","cases":[0,0,0,0,0,0]},
+{"nom":"Dragtarus le Bellâtre","alias":"Dragoss Argile","cases":[0,0,0,0,0,0]},
+{"nom":"Draquetteur le Voleur","alias":"Dragoss Charbon","cases":[0,0,0,0,0,0]},
+{"nom":"Fangshui la Dysorthographiée","alias":"Fangshu","cases":[0,0,0,0,0,0]},
+{"nom":"Pétarfoutu le Mouillé","alias":"Pétartifoux","cases":[0,0,0,0,0,0]},
+{"nom":"Drakolage le Tentateur","alias":"Drakoalak","cases":[0,0,0,0,0,0]},
+{"nom":"Faufoll la Joyeuse","alias":"Fauchalak","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 17 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Bigbadaboum l'Élémentaire","alias":"Boumbardier","cases":[0,0,0,0,0,0]},
+{"nom":"Maître Koantik le Théoricien","alias":"Maître Koalak","cases":[0,0,0,0,0,0]},
+{"nom":"Poolopo la Traditionnelle","alias":"Poolay","cases":[0,0,0,0,0,0]},
+{"nom":"Trooyé l'Oxydé","alias":"Trollaraj","cases":[0,0,0,0,0,0]},
+{"nom":"Seripoth l'Ennemi","alias":"Sergent Zoth","cases":[0,0,0,0,0,0]},
+{"nom":"Kaskapointhe la Couverte","alias":"Kaskargo","cases":[0,0,0,0,0,0]},
+{"nom":"Toutouf le Velu","alias":"Bitouf Aérien","cases":[0,0,0,0,0,0]},
+{"nom":"Abrinos le Clair","alias":"Abrakleur Clair","cases":[0,0,0,0,0,0]},
+{"nom":"Don Kizoth l'Obstiné","alias":"Maître Zoth","cases":[0,0,0,0,0,0]},
+{"nom":"Chamiléro le Malchanceux","alias":"Champaknyde","cases":[0,0,0,0,0,0]},
+{"nom":"Crachefouxtre le Surpris","alias":"Crachefoux","cases":[0,0,0,0,0,0]},
+{"nom":"Tromplamor le Survivant","alias":"Tromperelle","cases":[0,0,0,0,0,0]},
+{"nom":"Chamoute le Duveteux","alias":"Champodonte","cases":[0,0,0,0,0,0]},
+{"nom":"Tsucékoi la Colporteuse","alias":"Tsukinochi","cases":[0,0,0,0,0,0]},
+{"nom":"Tambouille le Gastronome","alias":"Tambouraï","cases":[0,0,0,0,0,0]},
+{"nom":"Champoul l'Illuminé","alias":"Champbis","cases":[0,0,0,0,0,0]},
+{"nom":"Champolyon le Polyglotte","alias":"Champ À Gnons","cases":[0,0,0,0,0,0]},
+{"nom":"Champmé le Méchant","alias":"Champmane","cases":[0,0,0,0,0,0]},
+{"nom":"Onabuémangé la Rassasiée","alias":"Onabu-Geisha","cases":[0,0,0,0,0,0]},
+{"nom":"Jiankor le Radoteur","alias":"Jiangshi-Nobi","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 18 : Archimonstres","groupe":"archi","monstres":[
+{"nom":"Tronquette la Réduite","alias":"Rouquette","cases":[0,0,0,0,0,0]},
+{"nom":"Roy le Merlin","alias":"Roissingue","cases":[0,0,0,0,0,0]},
+{"nom":"Madgang le Docteur","alias":"Madura","cases":[0,0,0,0,0,0]},
+{"nom":"Bakaglace le Congelé","alias":"Bakazako","cases":[0,0,0,0,0,0]},
+{"nom":"Kaonucléair l'Instable","alias":"Kaonashi","cases":[0,0,0,0,0,0]},
+{"nom":"Tsumani l'Inondeur","alias":"Tsume-Bozu","cases":[0,0,0,0,0,0]}
+]},
+{"nom":"Étape 19 : L'Ultime Épreuve","groupe":"archi","monstres":[
+{"nom":"Kralamoure Géant","alias":"","cases":[0,0,0,0,0,0]}
+]}
+]}
+</script>
+
+<script>
+(function () {
+  'use strict';
+
+  var noeud = document.getElementById('donnees');
+  var donnees = JSON.parse(noeud.textContent);
+  var app = document.getElementById('app');
+  var MOTIF = /(<script id="donnees" type="application\/json">)[\s\S]*?(<\/script>)/;
+  var NBSP = ' ';
+
+  var compteurs = donnees.etapes.map(function (e) {
+    var fait = 0;
+    e.monstres.forEach(function (m) {
+      m.cases.forEach(function (v) { if (v) fait++; });
+    });
+    return { fait: fait, total: e.monstres.length * donnees.personnages.length };
+  });
+
+  function echapper(t) {
+    return String(t).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  function rendu() {
+    var colonnes = '<div class="ligne colonnes" aria-hidden="true"><span>Monstre</span>' +
+      donnees.personnages.map(function (p) { return '<span>' + echapper(p) + '</span>'; }).join('') +
+      '<span></span></div>';
+
+    app.innerHTML = donnees.etapes.map(function (etape, e) {
+      var lignes = etape.monstres.map(function (m, l) {
+        var cases = m.cases.map(function (v, c) {
+          return '<button type="button" class="case" data-e="' + e + '" data-l="' + l + '" data-c="' + c +
+            '" aria-pressed="' + (v ? 'true' : 'false') + '" aria-label="' +
+            echapper(m.nom + ', ' + donnees.personnages[c]) + '"></button>';
+        }).join('');
+        return '<div class="ligne"><div class="nom">' + echapper(m.nom) +
+          (m.alias ? '<small>' + echapper(m.alias) + '</small>' : '') + '</div>' + cases +
+          '<button type="button" class="tout" data-e="' + e + '" data-l="' + l + '"></button></div>';
+      }).join('');
+      return '<section class="etape" id="etape-' + e + '"><div class="etape-tete"><h2>' + echapper(etape.nom) +
+        '</h2><span class="compte"></span><span class="pct"></span></div>' +
+        '<div class="barre"><i></i></div>' + colonnes + lignes + '</section>';
+    }).join('');
+  }
+
+  rendu();
+
+  var sections = donnees.etapes.map(function (_, e) {
+    var s = document.getElementById('etape-' + e);
+    return {
+      racine: s,
+      compte: s.querySelector('.compte'),
+      pct: s.querySelector('.pct'),
+      barre: s.querySelector('.barre i'),
+      lignes: Array.prototype.map.call(s.querySelectorAll('.ligne:not(.colonnes)'), function (r) {
+        return { cases: r.querySelectorAll('.case'), tout: r.querySelector('.tout') };
+      })
+    };
+  });
+
+  // Arrondi vers le bas : 100 % ne s'affiche que si tout est coché.
+  function ratio(f, t) { return t ? f / t : 0; }
+  function pctEntier(r) { return Math.floor(r * 100 + 1e-9) + NBSP + '%'; }
+  function pctDecimal(r) {
+    return (Math.floor(r * 1000 + 1e-9) / 10).toLocaleString('fr-FR', {
+      minimumFractionDigits: 1, maximumFractionDigits: 1
+    }) + NBSP + '%';
+  }
+  function majMesure(cle, r) {
+    document.getElementById(cle + '-pct').textContent = pctDecimal(r);
+    document.getElementById(cle + '-barre').style.width = (r * 100) + '%';
+  }
+
+  function majHaut() {
+    var g = { fait: 0, total: 0 }, b = { fait: 0, total: 0 }, a = { fait: 0, total: 0 };
+    compteurs.forEach(function (c, e) {
+      var cible = donnees.etapes[e].groupe === 'boss' ? b : a;
+      g.fait += c.fait; g.total += c.total;
+      cible.fait += c.fait; cible.total += c.total;
+    });
+    var r = ratio(g.fait, g.total);
+    majMesure('global', r);
+    majMesure('boss', ratio(b.fait, b.total));
+    majMesure('archi', ratio(a.fait, a.total));
+    var fond = document.getElementById('remplissage');
+    fond.setAttribute('height', 72 * r);
+    fond.setAttribute('y', 74 - 72 * r);
+  }
+
+  function majEtape(e) {
+    var c = compteurs[e], s = sections[e], r = ratio(c.fait, c.total);
+    s.compte.textContent = c.fait + ' / ' + c.total;
+    s.pct.textContent = pctEntier(r);
+    s.barre.style.width = (r * 100) + '%';
+    s.racine.classList.toggle('complete', c.fait === c.total);
+  }
+
+  function ligneComplete(e, l) {
+    return donnees.etapes[e].monstres[l].cases.every(function (v) { return v; });
+  }
+
+  function majTout(e, l) {
+    sections[e].lignes[l].tout.textContent = ligneComplete(e, l) ? 'Tout décocher' : 'Tout cocher';
+  }
+
+  function poser(e, l, c, valeur) {
+    var cases = donnees.etapes[e].monstres[l].cases;
+    if (!!cases[c] === valeur) return;
+    cases[c] = valeur ? 1 : 0;
+    compteurs[e].fait += valeur ? 1 : -1;
+    sections[e].lignes[l].cases[c].setAttribute('aria-pressed', valeur ? 'true' : 'false');
+  }
+
+  app.addEventListener('click', function (ev) {
+    var b = ev.target.closest('button');
+    if (!b) return;
+    var e = Number(b.dataset.e), l = Number(b.dataset.l);
+    if (b.classList.contains('case')) {
+      var c = Number(b.dataset.c);
+      poser(e, l, c, !donnees.etapes[e].monstres[l].cases[c]);
+    } else {
+      var valeur = !ligneComplete(e, l);
+      donnees.personnages.forEach(function (_, i) { poser(e, l, i, valeur); });
+    }
+    majTout(e, l);
+    majEtape(e);
+    majHaut();
+    aChange();
+  });
+
+  sections.forEach(function (s, e) {
+    s.lignes.forEach(function (_, l) { majTout(e, l); });
+    majEtape(e);
+  });
+  majHaut();
+
+  /* ---------- Sauvegarde dans le fichier ---------- */
+
+  var zone = document.getElementById('sauvegarde');
+  var statut = document.getElementById('statut');
+  var action = document.getElementById('action');
+  var fichier = null;
+  var autorise = false;
+  var version = 0;
+  var versionEcrite = 0;
+  var ecriture = false;
+  var relancer = false;
+  var minuteur = null;
+  var pickerDispo = typeof window.showOpenFilePicker === 'function';
+  var actionCourante = null;
+
+  function nomFichier() {
+    var nom = decodeURIComponent(location.pathname.split('/').pop() || '');
+    return nom || 'Suivi_Dofus_Ocre.html';
+  }
+
+  function json(v) { return JSON.stringify(v).replace(/</g, '\\u003c'); }
+
+  function serialiser() {
+    var etapes = donnees.etapes.map(function (e) {
+      return '{"nom":' + json(e.nom) + ',"groupe":' + json(e.groupe) + ',"monstres":[\n' +
+        e.monstres.map(json).join(',\n') + '\n]}';
+    });
+    return '{"titre":' + json(donnees.titre) + ',\n"personnages":' + json(donnees.personnages) +
+      ',\n"etapes":[\n' + etapes.join(',\n') + '\n]}';
+  }
+
+  function remplacer(source) {
+    if (!MOTIF.test(source)) throw new Error('données introuvables');
+    return source.replace(MOTIF, function (_, debut, fin) {
+      return debut + '\n' + serialiser() + '\n' + fin;
+    });
+  }
+
+  function afficher(texte, alerte, libelle, fn) {
+    statut.textContent = texte;
+    zone.classList.toggle('alerte', !!alerte);
+    actionCourante = fn || null;
+    action.hidden = !fn;
+    action.textContent = libelle || '';
+  }
+
+  action.addEventListener('click', function () { if (actionCourante) actionCourante(); });
+
+  function etatNonLie() {
+    var attente = version !== versionEcrite;
+    if (pickerDispo) {
+      afficher(attente ? 'Tes changements ne sont pas encore dans le fichier.' :
+        'Lie ce fichier pour enregistrer chaque clic automatiquement.',
+        attente, 'Enregistrer dans ce fichier', lier);
+    } else {
+      afficher(attente ? 'Tes changements ne sont pas encore dans le fichier.' :
+        'Ce navigateur ne peut pas modifier le fichier directement.',
+        attente, 'Télécharger le fichier à jour', telecharger);
+    }
+  }
+
+  function aChange() {
+    version++;
+    if (!fichier) { etatNonLie(); return; }
+    if (!autorise) { reprendre(); return; }
+    clearTimeout(minuteur);
+    minuteur = setTimeout(enregistrer, 150);
+  }
+
+  async function enregistrer() {
+    if (ecriture) { relancer = true; return; }
+    ecriture = true;
+    var v = version;
+    try {
+      var source = await (await fichier.getFile()).text();
+      var sortie = remplacer(source);
+      var flux = await fichier.createWritable();
+      await flux.write(sortie);
+      await flux.close();
+      versionEcrite = v;
+      if (version === versionEcrite) afficher('Enregistré dans ' + fichier.name);
+    } catch (err) {
+      autorise = false;
+      afficher('Enregistrement impossible : le fichier a peut-être été déplacé ou renommé.',
+        true, 'Choisir le fichier', lier);
+    } finally {
+      ecriture = false;
+      if (relancer) { relancer = false; enregistrer(); }
+    }
+  }
+
+  async function reprendre() {
+    try {
+      var r = await fichier.requestPermission({ mode: 'readwrite' });
+      autorise = r === 'granted';
+    } catch (err) {
+      autorise = false;
+    }
+    if (autorise) {
+      enregistrer();
+    } else {
+      afficher('Autorise l\'accès au fichier pour enregistrer tes changements.',
+        true, 'Autoriser l\'enregistrement', reprendre);
+    }
+  }
+
+  async function lier() {
+    try {
+      var liste = await window.showOpenFilePicker({
+        multiple: false,
+        types: [{ description: 'Page HTML', accept: { 'text/html': ['.html', '.htm'] } }]
+      });
+      var h = liste[0];
+      var r = await h.requestPermission({ mode: 'readwrite' });
+      if (r !== 'granted') {
+        afficher('Autorise l\'accès au fichier pour enregistrer tes changements.',
+          true, 'Enregistrer dans ce fichier', lier);
+        return;
+      }
+      var source = await (await h.getFile()).text();
+      if (!MOTIF.test(source) || source.indexOf('data-suivi="dofus-ocre"') < 0) {
+        afficher('Ce fichier n\'est pas la page de suivi. Choisis ' + nomFichier() + '.',
+          true, 'Enregistrer dans ce fichier', lier);
+        return;
+      }
+      if (h.name !== nomFichier() &&
+          !window.confirm('Remplacer la progression de « ' + h.name + ' » par celle de cette page ?')) {
+        etatNonLie();
+        return;
+      }
+      fichier = h;
+      autorise = true;
+      memoriser(h);
+      await enregistrer();
+    } catch (err) {
+      if (err && err.name === 'AbortError') { etatNonLie(); return; }
+      pickerDispo = false;
+      afficher('Ouvre ce fichier directement dans Chrome ou Edge pour enregistrer chaque clic, ou télécharge-le.',
+        true, 'Télécharger le fichier à jour', telecharger);
+    }
+  }
+
+  function telecharger() {
+    var copie = document.documentElement.cloneNode(true);
+    copie.querySelector('#app').innerHTML = '';
+    copie.querySelector('#donnees').textContent = '\n' + serialiser() + '\n';
+    var html = '<!doctype html>\n' + copie.outerHTML;
+    var lien = document.createElement('a');
+    lien.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    lien.download = nomFichier();
+    document.body.appendChild(lien);
+    lien.click();
+    lien.remove();
+    setTimeout(function () { URL.revokeObjectURL(lien.href); }, 10000);
+    versionEcrite = version;
+    afficher('Téléchargé. Remplace l\'ancien fichier par celui-ci.', false,
+      'Télécharger le fichier à jour', telecharger);
+  }
+
+  function ouvrirBase() {
+    return new Promise(function (ok, ko) {
+      var req = indexedDB.open('suivi-dofus-ocre', 1);
+      req.onupgradeneeded = function () { req.result.createObjectStore('fichiers'); };
+      req.onsuccess = function () { ok(req.result); };
+      req.onerror = function () { ko(req.error); };
+    });
+  }
+
+  async function memoriser(h) {
+    try {
+      var base = await ouvrirBase();
+      base.transaction('fichiers', 'readwrite').objectStore('fichiers').put(h, location.pathname);
+    } catch (err) { /* Le fichier sera simplement redemandé à la prochaine ouverture. */ }
+  }
+
+  async function retrouver() {
+    try {
+      var base = await ouvrirBase();
+      var h = await new Promise(function (ok, ko) {
+        var req = base.transaction('fichiers').objectStore('fichiers').get(location.pathname);
+        req.onsuccess = function () { ok(req.result); };
+        req.onerror = function () { ko(req.error); };
+      });
+      if (!h) return;
+      fichier = h;
+      autorise = (await h.queryPermission({ mode: 'readwrite' })) === 'granted';
+      if (autorise) {
+        afficher('Enregistré dans ' + h.name);
+      } else {
+        afficher('Clique sur une case, puis autorise l\'accès pour reprendre l\'enregistrement.',
+          false, 'Autoriser l\'enregistrement', reprendre);
+      }
+    } catch (err) { /* Pas de fichier mémorisé. */ }
+  }
+
+  window.addEventListener('beforeunload', function (ev) {
+    if (version !== versionEcrite) { ev.preventDefault(); ev.returnValue = ''; }
+  });
+
+  etatNonLie();
+  if (pickerDispo) retrouver();
+})();
+</script>
+</body>
+</html>
