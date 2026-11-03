@@ -755,7 +755,7 @@ h2 { margin: 0; flex: 1; font-size: 22px; line-height: 1.2; font-weight: 600; }
 
   function aChange() {
     version++;
-    if (enLigne) { planifierEnvoi(); return; }
+    if (sauver) { planifierEnvoi(); return; }
     if (!fichier) { etatNonLie(); return; }
     if (!autorise) { reprendre(); return; }
     clearTimeout(minuteur);
@@ -892,9 +892,12 @@ h2 { margin: 0; flex: 1; font-size: 22px; line-height: 1.2; font-weight: 600; }
     if (version !== versionEcrite) { ev.preventDefault(); ev.returnValue = ''; }
   });
 
-  /* ---------- Sauvegarde en ligne (page hébergée sur claude.ai) ---------- */
+  /* ---------- Sauvegarde en ligne ----------
+     Sur claude.ai : base de données de l'artifact.
+     Sur GitHub Pages : fichier progression.json de la branche « donnees » du dépôt. */
 
-  var enLigne = null;
+  var sauver = null;          // fonction d'enregistrement du mode en ligne actif
+  var messageOk = '';
   var connecte = false;
   var lectureSeule = false;
   var envoiMinuteur = null;
@@ -926,53 +929,37 @@ h2 { margin: 0; flex: 1; font-size: 22px; line-height: 1.2; font-weight: 600; }
     majHaut();
   }
 
-  async function demarrerEnLigne() {
-    var db = null;
-    try { db = await window.claude.use('db'); } catch (err) { db = null; }
-    if (!db) {
-      afficher('Sauvegarde en ligne indisponible : connecte-toi à claude.ai pour retrouver ta progression.', true);
-      return;
-    }
-    enLigne = db.doc('suivi/progression');
-    var attente = setTimeout(function () {
-      if (!connecte) afficher('La sauvegarde en ligne ne répond pas encore. Tes clics seront envoyés dès que possible.', true);
-    }, 10000);
-    enLigne.onSnapshot(function (snap) {
-      if (!snap.metadata.fromCache) { connecte = true; clearTimeout(attente); }
-      // Ne pas écraser des clics pas encore envoyés.
-      if (snap.metadata.hasPendingWrites || envoiEnCours || version !== versionEcrite) return;
-      appliquer(snap.exists ? (snap.data() || {}).m : {});
-      if (connecte && !lectureSeule) afficher('Progression sauvegardée en ligne.');
-    }, function () {
-      clearTimeout(attente);
-      afficher('La sauvegarde en ligne n\'est plus disponible : tes prochains clics ne seront pas enregistrés.', true);
-    });
-  }
+  function erreur(code) { var e = new Error(code); e.code = code; return e; }
 
   function planifierEnvoi() {
     if (lectureSeule) {
       afficher('Lecture seule : tes clics ne sont pas sauvegardés.', true);
       return;
     }
+    if (modeGithub && !lireJeton()) { etatSansJeton(); return; }
     afficher('Enregistrement…');
     clearTimeout(envoiMinuteur);
-    envoiMinuteur = setTimeout(envoyer, 400);
+    envoiMinuteur = setTimeout(envoyer, modeGithub ? 1200 : 400);
   }
 
-  async function envoyer() {
+  async function envoyer(garde) {
+    clearTimeout(envoiMinuteur);
     if (envoiEnCours) { envoiRelance = true; return; }
     envoiEnCours = true;
     var v = version;
     try {
-      await enLigne.set({ m: etatEnLigne() });
+      await sauver(etatEnLigne(), garde === true);
       versionEcrite = v;
       reessaye = false;
-      if (version === versionEcrite) afficher('Progression sauvegardée en ligne.');
+      if (version === versionEcrite) afficher(messageOk);
     } catch (err) {
       var code = err && err.code;
       if (code === 'unavailable' && !reessaye) {
         reessaye = true;
         setTimeout(envoyer, 800 + Math.random() * 1200);
+      } else if (code === 'jeton') {
+        afficher('GitHub refuse le jeton : il est faux, expiré ou sans le droit d\'écrire dans le dépôt.',
+          true, 'Changer le jeton', demanderJeton);
       } else if (code === 'invalid_argument') {
         lectureSeule = true;
         afficher('Lecture seule : tu ne peux pas modifier cette progression.', true);
@@ -987,9 +974,187 @@ h2 { margin: 0; flex: 1; font-size: 22px; line-height: 1.2; font-weight: 600; }
     }
   }
 
+  /* --- claude.ai --- */
+
+  async function demarrerClaude() {
+    var db = null;
+    try { db = await window.claude.use('db'); } catch (err) { db = null; }
+    if (!db) {
+      afficher('Sauvegarde en ligne indisponible : connecte-toi à claude.ai pour retrouver ta progression.', true);
+      return;
+    }
+    var ref = db.doc('suivi/progression');
+    sauver = function (m) { return ref.set({ m: m }); };
+    messageOk = 'Progression sauvegardée en ligne.';
+    var attente = setTimeout(function () {
+      if (!connecte) afficher('La sauvegarde en ligne ne répond pas encore. Tes clics seront envoyés dès que possible.', true);
+    }, 10000);
+    ref.onSnapshot(function (snap) {
+      if (!snap.metadata.fromCache) { connecte = true; clearTimeout(attente); }
+      // Ne pas écraser des clics pas encore envoyés.
+      if (snap.metadata.hasPendingWrites || envoiEnCours || version !== versionEcrite) return;
+      appliquer(snap.exists ? (snap.data() || {}).m : {});
+      if (connecte && !lectureSeule) afficher(messageOk);
+    }, function () {
+      clearTimeout(attente);
+      afficher('La sauvegarde en ligne n\'est plus disponible : tes prochains clics ne seront pas enregistrés.', true);
+    });
+  }
+
+  /* --- GitHub Pages --- */
+
+  var modeGithub = /\.github\.io$/.test(location.hostname);
+  var GH_API = 'https://api.github.com/repos/fabiocartolano1/dofus-perso/contents/progression.json';
+  var GH_BRANCHE = 'donnees';
+  var CLE_JETON = 'suivi-dofus-ocre-jeton';
+  var sha = null;
+  var base = {};              // dernier état connu sur GitHub, pour fusionner avec un autre PC
+
+  var jetonMemoire = '';
+  function lireJeton() {
+    if (jetonMemoire) return jetonMemoire;
+    try { return localStorage.getItem(CLE_JETON) || ''; } catch (e) { return ''; }
+  }
+  function ecrireJeton(j) {
+    jetonMemoire = j;
+    try { localStorage.setItem(CLE_JETON, j); } catch (e) { /* jeton gardé pour cette visite seulement */ }
+  }
+
+  function entetes() {
+    var h = { 'Accept': 'application/vnd.github+json' };
+    var j = lireJeton();
+    if (j) h.Authorization = 'Bearer ' + j;
+    return h;
+  }
+
+  function versBase64(texte) {
+    var s = '';
+    new TextEncoder().encode(texte).forEach(function (o) { s += String.fromCharCode(o); });
+    return btoa(s);
+  }
+  function depuisBase64(b64) {
+    var bin = atob(b64.replace(/\s/g, ''));
+    var octets = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) octets[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(octets);
+  }
+
+  async function chargerGithub() {
+    var r;
+    try {
+      r = await fetch(GH_API + '?ref=' + GH_BRANCHE + '&t=' + Date.now(), { headers: entetes(), cache: 'no-store' });
+    } catch (e) { throw erreur('unavailable'); }
+    if (r.status === 404) { sha = null; return {}; }
+    if (r.status === 401) throw erreur('jeton');
+    if (!r.ok) throw erreur('unavailable');
+    var j = await r.json();
+    sha = j.sha;
+    var m = (JSON.parse(depuisBase64(j.content)) || {}).m;
+    return m && typeof m === 'object' ? m : {};
+  }
+
+  // Garde les cases changées ici depuis le dernier chargement, et prend le reste de GitHub.
+  function fusionner(localM, distantM) {
+    var res = {};
+    donnees.etapes.forEach(function (e) {
+      e.monstres.forEach(function (mo) {
+        var b = base[mo.nom] || '', l = localM[mo.nom] || '', d = distantM[mo.nom] || '', s = '';
+        for (var c = 0; c < donnees.personnages.length; c++) {
+          var lc = l.charAt(c) === '1', bc = b.charAt(c) === '1', dc = d.charAt(c) === '1';
+          s += (lc !== bc ? lc : dc) ? '1' : '0';
+        }
+        if (s.indexOf('1') >= 0) res[mo.nom] = s;
+      });
+    });
+    return res;
+  }
+
+  async function ecrireGithub(m, garde) {
+    var corps = {
+      message: 'Progression Dofus Ocre',
+      content: versBase64(JSON.stringify({ m: m }, null, 1)),
+      branch: GH_BRANCHE
+    };
+    if (sha) corps.sha = sha;
+    var r;
+    try {
+      r = await fetch(GH_API, { method: 'PUT', headers: entetes(), body: JSON.stringify(corps), keepalive: garde });
+    } catch (e) { throw erreur('unavailable'); }
+    if (r.status === 401 || r.status === 403 || r.status === 404) throw erreur('jeton');
+    if (r.status === 409 || r.status === 422) throw erreur('conflit');
+    if (!r.ok) throw erreur('unavailable');
+    sha = (await r.json()).content.sha;
+    base = m;
+  }
+
+  async function sauverGithub(m, garde) {
+    try {
+      await ecrireGithub(m, garde);
+    } catch (err) {
+      if (err.code !== 'conflit') throw err;
+      // Un autre PC a enregistré entre-temps : on fusionne puis on réessaie une fois.
+      var distant = await chargerGithub();
+      var fus = fusionner(m, distant);
+      appliquer(fus);
+      await ecrireGithub(fus, false);
+    }
+  }
+
+  function etatSansJeton() {
+    afficher(version !== versionEcrite ?
+      'Tes clics ne sont pas encore enregistrés : connecte GitHub sur ce PC (une seule fois).' :
+      'Connecte GitHub sur ce PC (une seule fois) pour enregistrer tes clics.',
+      true, 'Connecter GitHub', demanderJeton);
+  }
+
+  function demanderJeton() {
+    var j = window.prompt('Colle ton jeton GitHub (il reste enregistré sur ce PC) :', '');
+    if (j === null) { if (!lireJeton()) etatSansJeton(); return; }
+    j = j.trim();
+    if (!j) { etatSansJeton(); return; }
+    ecrireJeton(j);
+    if (version !== versionEcrite) envoyer();
+    else afficher(messageOk);
+  }
+
+  async function rechargerGithub() {
+    if (envoiEnCours || version !== versionEcrite) return;
+    try {
+      var m = await chargerGithub();
+      if (envoiEnCours || version !== versionEcrite) return;
+      base = m;
+      appliquer(m);
+      if (lireJeton()) afficher(messageOk); else etatSansJeton();
+    } catch (err) {
+      if (err.code === 'jeton') {
+        afficher('GitHub refuse le jeton : il est faux ou expiré.', true, 'Changer le jeton', demanderJeton);
+      } else {
+        afficher('Impossible de charger la progression depuis GitHub. Recharge la page dans un moment.', true);
+      }
+    }
+  }
+
+  function demarrerGithub() {
+    sauver = sauverGithub;
+    messageOk = 'Progression sauvegardée sur GitHub.';
+    afficher('Chargement de la progression…');
+    rechargerGithub();
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        // Envoie tout de suite les derniers clics si l'onglet est fermé ou quitté.
+        if (version !== versionEcrite && lireJeton()) envoyer(true);
+      } else {
+        // De retour sur l'onglet : récupère ce qui a pu être coché sur un autre PC.
+        rechargerGithub();
+      }
+    });
+  }
+
   if (window.claude && typeof window.claude.use === 'function') {
     afficher('Connexion à la sauvegarde en ligne…');
-    demarrerEnLigne();
+    demarrerClaude();
+  } else if (modeGithub) {
+    demarrerGithub();
   } else {
     etatNonLie();
     if (pickerDispo) retrouver();
