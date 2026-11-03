@@ -755,6 +755,7 @@ h2 { margin: 0; flex: 1; font-size: 22px; line-height: 1.2; font-weight: 600; }
 
   function aChange() {
     version++;
+    if (enLigne) { planifierEnvoi(); return; }
     if (!fichier) { etatNonLie(); return; }
     if (!autorise) { reprendre(); return; }
     clearTimeout(minuteur);
@@ -891,8 +892,108 @@ h2 { margin: 0; flex: 1; font-size: 22px; line-height: 1.2; font-weight: 600; }
     if (version !== versionEcrite) { ev.preventDefault(); ev.returnValue = ''; }
   });
 
-  etatNonLie();
-  if (pickerDispo) retrouver();
+  /* ---------- Sauvegarde en ligne (page hébergée sur claude.ai) ---------- */
+
+  var enLigne = null;
+  var connecte = false;
+  var lectureSeule = false;
+  var envoiMinuteur = null;
+  var envoiEnCours = false;
+  var envoiRelance = false;
+  var reessaye = false;
+
+  // Seuls les monstres avec au moins une case cochée sont stockés : { "nom": "010000" }.
+  function etatEnLigne() {
+    var m = {};
+    donnees.etapes.forEach(function (e) {
+      e.monstres.forEach(function (mo) {
+        if (mo.cases.some(Boolean)) m[mo.nom] = mo.cases.join('');
+      });
+    });
+    return m;
+  }
+
+  function appliquer(m) {
+    m = m && typeof m === 'object' ? m : {};
+    donnees.etapes.forEach(function (e, ei) {
+      e.monstres.forEach(function (mo, l) {
+        var s = typeof m[mo.nom] === 'string' ? m[mo.nom] : '';
+        mo.cases.forEach(function (_, c) { poser(ei, l, c, s.charAt(c) === '1'); });
+        majTout(ei, l);
+      });
+      majEtape(ei);
+    });
+    majHaut();
+  }
+
+  async function demarrerEnLigne() {
+    var db = null;
+    try { db = await window.claude.use('db'); } catch (err) { db = null; }
+    if (!db) {
+      afficher('Sauvegarde en ligne indisponible : connecte-toi à claude.ai pour retrouver ta progression.', true);
+      return;
+    }
+    enLigne = db.doc('suivi/progression');
+    var attente = setTimeout(function () {
+      if (!connecte) afficher('La sauvegarde en ligne ne répond pas encore. Tes clics seront envoyés dès que possible.', true);
+    }, 10000);
+    enLigne.onSnapshot(function (snap) {
+      if (!snap.metadata.fromCache) { connecte = true; clearTimeout(attente); }
+      // Ne pas écraser des clics pas encore envoyés.
+      if (snap.metadata.hasPendingWrites || envoiEnCours || version !== versionEcrite) return;
+      appliquer(snap.exists ? (snap.data() || {}).m : {});
+      if (connecte && !lectureSeule) afficher('Progression sauvegardée en ligne.');
+    }, function () {
+      clearTimeout(attente);
+      afficher('La sauvegarde en ligne n\'est plus disponible : tes prochains clics ne seront pas enregistrés.', true);
+    });
+  }
+
+  function planifierEnvoi() {
+    if (lectureSeule) {
+      afficher('Lecture seule : tes clics ne sont pas sauvegardés.', true);
+      return;
+    }
+    afficher('Enregistrement…');
+    clearTimeout(envoiMinuteur);
+    envoiMinuteur = setTimeout(envoyer, 400);
+  }
+
+  async function envoyer() {
+    if (envoiEnCours) { envoiRelance = true; return; }
+    envoiEnCours = true;
+    var v = version;
+    try {
+      await enLigne.set({ m: etatEnLigne() });
+      versionEcrite = v;
+      reessaye = false;
+      if (version === versionEcrite) afficher('Progression sauvegardée en ligne.');
+    } catch (err) {
+      var code = err && err.code;
+      if (code === 'unavailable' && !reessaye) {
+        reessaye = true;
+        setTimeout(envoyer, 800 + Math.random() * 1200);
+      } else if (code === 'invalid_argument') {
+        lectureSeule = true;
+        afficher('Lecture seule : tu ne peux pas modifier cette progression.', true);
+      } else if (code === 'quota_exceeded') {
+        afficher('Espace de sauvegarde plein : tes derniers clics ne sont pas enregistrés.', true);
+      } else {
+        afficher('Enregistrement impossible pour le moment. Réessaie avec un nouveau clic.', true);
+      }
+    } finally {
+      envoiEnCours = false;
+      if (envoiRelance) { envoiRelance = false; envoyer(); }
+    }
+  }
+
+  if (window.claude && typeof window.claude.use === 'function') {
+    afficher('Connexion à la sauvegarde en ligne…');
+    demarrerEnLigne();
+  } else {
+    etatNonLie();
+    if (pickerDispo) retrouver();
+  }
 })();
 </script>
 </body>
